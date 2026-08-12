@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jarvis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --panel: #121826;
+    --panel-line: #232c3f;
+    --ink: #eef1f7;
+    --ink-dim: #8993ab;
+    --amber: #e8935a;
+    --amber-bright: #f5b083;
+    --teal: #7fd9c4;
+    --error: #c1573f;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    background-image: radial-gradient(circle at 50% -10%, rgba(232,147,90,0.08), transparent 55%);
+    color: var(--ink);
+    font-family: 'Manrope', sans-serif;
+    min-height: 100vh;
+  }
+
+  .stage {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 30px 26px 26px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+
+  .eyebrow {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 4px;
+  }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 26px;
+    margin: 0 0 18px;
+    letter-spacing: 0.01em;
+  }
+
+  /* --- Orb / visualizer --- */
+  .orb-wrap {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    margin: 4px auto 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  canvas#waveCanvas {
+    position: absolute;
+    inset: 0;
+    width: 176px;
+    height: 176px;
+  }
+
+  .orb-core {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--amber-bright), var(--amber) 60%, #7a4a2c 100%);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 30px rgba(232,147,90,0.35);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    z-index: 1;
+  }
+
+  .orb-core.listening {
+    background: radial-gradient(circle at 35% 30%, var(--teal), #3f8f7f 60%, #204a42 100%);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 0 34px rgba(127,217,196,0.45);
+  }
+
+  /* --- Status --- */
+  .status-text {
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    color: var(--ink-dim);
+    min-height: 20px;
+    margin-bottom: 20px;
+  }
+  .status-text.listening { color: var(--teal); }
+  .status-text.awake { color: var(--amber-bright); }
+  .status-text.error { color: var(--error); }
+
+  /* --- Controls --- */
+  .controls { display: flex; gap: 10px; margin-bottom: 22px; }
+
+  button.main-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  button.main-btn.start {
+    background: var(--amber);
+    color: #0a0e1a;
+  }
+  button.main-btn.start:hover { background: var(--amber-bright); }
+
+  button.main-btn.stop {
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    color: var(--ink-dim);
+  }
+  button.main-btn.stop:hover { border-color: var(--error); color: var(--error); }
+
+  button:active { transform: scale(0.98); }
+  button:focus-visible { outline: 2px solid var(--amber-bright); outline-offset: 2px; }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  /* --- Commands reference --- */
+  .commands {
+    border-top: 1px solid var(--panel-line);
+    padding-top: 16px;
+    margin-bottom: 16px;
+  }
+  .commands-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0 0 10px;
+  }
+  .cmd-list { display: flex; flex-direction: column; gap: 6px; }
+  .cmd-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+  .cmd-row .phrase { font-family: 'Space Grotesk', sans-serif; color: var(--ink); }
+  .cmd-row .desc { color: var(--ink-dim); }
+
+  .site-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .site-chip {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--panel-line);
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .site-chip:hover { border-color: var(--amber); color: var(--amber-bright); }
+  .site-chip:focus-visible { outline: 2px solid var(--amber-bright); outline-offset: 2px; }
+
+  /* --- Transcript log --- */
+  .log-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0 0 8px;
+  }
+  .log {
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+  }
+  .log-entry {
+    font-size: 12.5px;
+    font-family: 'Space Grotesk', monospace;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--panel-line);
+    color: var(--ink-dim);
+  }
+  .log-entry .who { color: var(--amber-bright); font-weight: 600; }
+  .log-entry.jarvis .who { color: var(--teal); }
+
+  .unsupported {
+    text-align: center;
+    color: var(--error);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="card">
+    <p class="eyebrow">Voice Assistant</p>
+    <h1>Jarvis</h1>
+
+    <div class="orb-wrap">
+      <canvas id="waveCanvas" width="176" height="176"></canvas>
+      <div class="orb-core" id="orbCore"></div>
+    </div>
+
+    <p class="status-text" id="statusText">Press start, then say "Jarvis"</p>
+
+    <div class="controls">
+      <button class="main-btn start" id="startBtn">Start Jarvis</button>
+      <button class="main-btn stop" id="stopBtn" disabled>Stop</button>
+    </div>
+
+    <div class="commands">
+      <p class="commands-title">Known commands</p>
+      <div class="cmd-list">
+        <div class="cmd-row"><span class="phrase">"open &lt;site&gt;"</span><span class="desc">opens a site below</span></div>
+        <div class="cmd-row"><span class="phrase">"play geography"</span><span class="desc">plays a track</span></div>
+        <div class="cmd-row"><span class="phrase">"play skyfall"</span><span class="desc">plays a track</span></div>
+      </div>
+      <div class="site-chips" id="siteChips"></div>
+    </div>
+
+    <p class="log-title">Transcript</p>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+  const MUSIC = {
+    geography: "https://www.youtube.com/watch?v=gRRMSF0nB0c",
+    skyfall: "https://www.youtube.com/watch?v=DeumyOzKqgI",
+  };
+
+  // say "open <name>" for any of these
+  const SITES = {
+    google: "https://google.com",
+    youtube: "https://youtube.com",
+    gmail: "https://mail.google.com",
+    github: "https://github.com",
+    spotify: "https://open.spotify.com",
+    netflix: "https://netflix.com",
+    amazon: "https://amazon.com",
+    wikipedia: "https://wikipedia.org",
+    twitter: "https://twitter.com",
+    instagram: "https://instagram.com",
+    facebook: "https://facebook.com",
+    whatsapp: "https://web.whatsapp.com",
+    maps: "https://maps.google.com",
+    drive: "https://drive.google.com",
+    reddit: "https://reddit.com",
+    linkedin: "https://linkedin.com",
+    calendar: "https://calendar.google.com",
+    chatgpt: "https://chat.openai.com",
+    claude: "https://claude.ai",
+  };
+
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const statusText = document.getElementById('statusText');
+  const orbCore = document.getElementById('orbCore');
+  const logEl = document.getElementById('log');
+  const canvas = document.getElementById('waveCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const SpeechRecognitionImpl = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  let recognition = null;
+  let running = false;
+  let awake = false;
+  let audioCtx = null;
+  let analyser = null;
+  let micStream = null;
+  let rafId = null;
+
+  function log(who, text) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (who === 'jarvis' ? ' jarvis' : '');
+    entry.innerHTML = `<span class="who">${who}:</span> ${text}`;
+    logEl.appendChild(entry);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function setStatus(text, cls) {
+    statusText.textContent = text;
+    statusText.className = 'status-text' + (cls ? ' ' + cls : '');
+  }
+
+  function speak(text) {
+    log('jarvis', text);
+    if ('speechSynthesis' in window) {
+      const utter = new SpeechSynthesisUtterance(text);
+      speechSynthesis.speak(utter);
+    }
+  }
+
+  function processCommand(command) {
+    const c = command.toLowerCase();
+    if (c.startsWith('open')) {
+      const site = c.split(' ').slice(1).join(' ').trim();
+      if (SITES[site]) {
+        window.open(SITES[site], '_blank');
+        speak(`Opening ${site}.`);
+      } else {
+        speak(`I don't have ${site || 'that'} set up to open.`);
+      }
+    } else if (c.startsWith('play')) {
+      const song = c.split(' ').slice(1).join(' ').trim();
+      if (MUSIC[song]) {
+        window.open(MUSIC[song], '_blank');
+        speak(`Playing ${song}.`);
+      } else {
+        speak(`I don't have ${song || 'that'} in my playlist.`);
+      }
+    } else {
+      speak("I didn't catch a command I know.");
+    }
+  }
+
+  function drawWave() {
+    if (!analyser) return;
+    const bufferLength = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufferLength);
+    analyser.getByteFrequencyData(data);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const baseR = 46;
+    const bars = 48;
+    const step = Math.floor(bufferLength / bars);
+
+    let sum = 0;
+    for (let i = 0; i < bars; i++) {
+      const v = data[i * step] || 0;
+      sum += v;
+      const amp = (v / 255) * 34;
+      const angle = (i / bars) * Math.PI * 2;
+      const r1 = baseR;
+      const r2 = baseR + amp;
+      const x1 = cx + Math.cos(angle) * r1;
+      const y1 = cy + Math.sin(angle) * r1;
+      const x2 = cx + Math.cos(angle) * r2;
+      const y2 = cy + Math.sin(angle) * r2;
+      ctx.strokeStyle = awake ? 'rgba(127,217,196,0.75)' : 'rgba(232,147,90,0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    const avg = sum / bars;
+    const scale = 1 + Math.min(avg / 255, 1) * 0.12;
+    orbCore.style.transform = `scale(${scale})`;
+
+    rafId = requestAnimationFrame(drawWave);
+  }
+
+  async function startVisualizer() {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      drawWave();
+    } catch (e) {
+      console.warn('visualizer mic access failed:', e);
+    }
+  }
+
+  function stopVisualizer() {
+    if (rafId) cancelAnimationFrame(rafId);
+    if (micStream) micStream.getTracks().forEach(t => t.stop());
+    if (audioCtx) audioCtx.close();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    orbCore.style.transform = 'scale(1)';
+  }
+
+  function startJarvis() {
+    if (!SpeechRecognitionImpl) {
+      setStatus('Speech recognition is not supported in this browser. Try Chrome.', 'error');
+      return;
+    }
+
+    running = true;
+    awake = false;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    setStatus('Say "Jarvis" to wake me', '');
+    speak('Initializing Jarvis.');
+    startVisualizer();
+
+    recognition = new SpeechRecognitionImpl();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      log('you', transcript);
+
+      if (!awake) {
+        if (transcript.toLowerCase().includes('jarvis')) {
+          awake = true;
+          orbCore.classList.add('listening');
+          setStatus('Active — awaiting your command', 'awake');
+          speak("Yes? I'm listening.");
+        }
+      } else {
+        processCommand(transcript);
+        awake = false;
+        orbCore.classList.remove('listening');
+        setStatus('Say "Jarvis" to wake me', '');
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      console.warn('recognition error:', event.error);
+
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        // permission was denied or blocked outright — stop retrying instead
+        // of looping forever, and tell the user why.
+        running = false;
+        awake = false;
+        orbCore.classList.remove('listening');
+        stopVisualizer();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        setStatus('Microphone access was blocked. If you\'re viewing this inside a preview panel, open the file directly in a browser tab instead, then press start and allow the mic.', 'error');
+      }
+    };
+
+    recognition.onend = () => {
+      if (running) {
+        try {
+          recognition.start(); // keep listening, like the original while-loop
+        } catch (e) {
+          console.warn('restart failed:', e);
+        }
+      }
+    };
+
+    recognition.start();
+  }
+
+  function stopJarvis() {
+    running = false;
+    awake = false;
+    if (recognition) {
+      recognition.onend = null;
+      recognition.stop();
+    }
+    orbCore.classList.remove('listening');
+    stopVisualizer();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    setStatus('Stopped. Press start to wake Jarvis again.', '');
+  }
+
+  function renderSiteChips() {
+    const wrap = document.getElementById('siteChips');
+    Object.keys(SITES).forEach(name => {
+      const chip = document.createElement('button');
+      chip.className = 'site-chip';
+      chip.type = 'button';
+      chip.textContent = name;
+      chip.addEventListener('click', () => window.open(SITES[name], '_blank'));
+      wrap.appendChild(chip);
+    });
+  }
+  renderSiteChips();
+
+  startBtn.addEventListener('click', startJarvis);
+  stopBtn.addEventListener('click', stopJarvis);
+
+  if (!SpeechRecognitionImpl) {
+    setStatus('Speech recognition is not supported in this browser. Try Chrome.', 'error');
+    startBtn.disabled = true;
+  }
+</script>
+</body>
+</html>
